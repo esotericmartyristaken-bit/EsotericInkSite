@@ -161,19 +161,17 @@ p, h1, h2, h3, span, li,
   FULL BOOT (initial load)
 ============================================================= */
 #ei-spa-root.ei-booting-full .ei-bg-overlay {
-  opacity: 0.0;
-  filter: saturate(1.35) contrast(1.25) brightness(0.55);
-  animation: eiBgBootSwirl var(--ei-boot-total) ease-out forwards;
+  opacity: 1.0;
+  filter: saturate(1.0) contrast(1.0) brightness(1.0);
+  animation: none;
 }
 #ei-spa-root.ei-booting-full .ei-bg-overlay::before,
 #ei-spa-root.ei-booting-full .ei-bg-overlay::after {
   transform-origin: 50% 50%;
-  animation: eiBgLayerSwirl var(--ei-boot-total) ease-out forwards;
+  animation: none;
 }
 #ei-spa-root.ei-booting-full .ei-bg-overlay::after {
-  animation:
-    eiBgLayerSwirl var(--ei-boot-total) ease-out forwards,
-    eiBgCenterFlicker var(--ei-boot-total) ease-out forwards;
+  animation: none;
 }
 
 @keyframes eiBgBootSwirl {
@@ -229,13 +227,21 @@ p, h1, h2, h3, span, li,
 
 #ei-spa-root.ei-booting-full .ei-stream-item,
 #ei-spa-root.ei-booting-full .ei-route-card,
-#ei-spa-root.ei-booting-full .ei-topnav-button,
 #ei-spa-root.ei-booting-full .ei-beta-banner {
   animation-name: eiPowerFlickerFull, eiGlowPulseSoft;
   animation-duration: var(--ei-fdur), calc(var(--ei-fdur) * 1.0);
   animation-delay: var(--ei-fd), var(--ei-fd);
   animation-timing-function: linear, ease-out;
   animation-fill-mode: both, both;
+}
+
+/* Keep title bar stable during boot. */
+#ei-spa-root.ei-booting-full .ei-topnav.ei-boot-chunk,
+#ei-spa-root.ei-booting-full .ei-topnav.ei-boot-chunk * {
+  opacity: 1;
+  filter: none;
+  transform: none;
+  animation: none !important;
 }
 
 @keyframes eiGlowPulseSoft {
@@ -309,12 +315,12 @@ p, h1, h2, h3, span, li,
 .ei-topnav-brand { display: flex; align-items: baseline; gap: 0.4rem; position: relative; z-index: 1; }
 
 .ei-topnav-title {
-  font-size: 0.92rem;
-  font-weight: 650;
-  color: rgba(226, 230, 242, 0.82);
-  letter-spacing: 0.08em;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: rgba(226, 230, 242, 0.90);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: "Lucida Console", "Courier New", Consolas, Monaco, Menlo, monospace;
   white-space: nowrap;
 }
 

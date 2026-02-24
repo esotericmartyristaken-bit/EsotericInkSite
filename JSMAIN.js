@@ -1,11 +1,8 @@
 /* =============================================================
   Esoteric Ink - Boot + Cascade controller (WordPress pages)
   -------------------------------------------------------------
-  Your old SPA view-switch JS is removed because WordPress pages
-  handle navigation now.
-
   What remains:
-  - Full boot “power on” flicker on each page load
+  - Full boot "power on" flicker on each page load
     (no pre-flash because HTML starts with .ei-booting-full)
   - After boot ends: a quick top-to-bottom cascade
 
@@ -13,184 +10,239 @@
   - Any element with data-ei-cascade-first (or inside one) will
     animate first in the cascade.
 ============================================================= */
-	(function () {
-	function initEsotericInk() {
-		startVersionLabelEnforcer("3.14");
-		applyTemporaryServiceStatus();
-		//const root = document.getElementById("ei-spa-root");
-		const root = document.getElementById("main") || document.getElementById("ei-spa-root");
-		if (!root) return;
-	  	// Run the flicker boot (random stagger).
-		// Not sure if actually needed. 
-		runFullBoot(root)
-		runCascadeIn(root);
+(function () {
+  var BOOT_DURATION_MS = 2200;
+  var TARGET_VERSION = "3.14";
 
-	function runFullBoot(root) {
-		console.debug("fullboot." + jQuery(root).attr('id'))
-		// Clear any prior timers (in case the theme re-initializes scripts)
-		window.clearTimeout(runFullBoot._t);
+  function initEsotericInk() {
+    startVersionLabelEnforcer(TARGET_VERSION);
+    applyTemporaryServiceStatus();
 
-	  const targets = Array.from(root.querySelectorAll(".ei-boot-chunk"));
-	  if (targets.length === 0) {
-		root.classList.remove("ei-booting-full");
-		return;
-	  }
+    var root = document.getElementById("ei-spa-root") || document.getElementById("main");
+    if (!root) return;
 
-	  function rand(min, max) { return min + Math.random() * (max - min); }
+    var bootDuration = runFullBoot(root);
+    window.clearTimeout(initEsotericInk._cascadeTimer);
+    initEsotericInk._cascadeTimer = window.setTimeout(function () {
+      runCascadeIn(root);
+    }, bootDuration);
+  }
 
-	  // Reset per-element CSS vars
-	  targets.forEach(function (el) {
-		el.style.removeProperty("--ei-fd");
-		el.style.removeProperty("--ei-fdur");
-		el.style.removeProperty("--ei-fseed");
-	  });
+  function runFullBoot(root) {
+    console.debug("fullboot." + (root.id || "unknown-root"));
 
-	  // Root is already .ei-booting-full in HTML to prevent flashing.
-	  // Keep it for the duration of the boot.
-	  root.classList.add("ei-booting-full");
+    window.clearTimeout(runFullBoot._t);
 
-	  const maxDelay = 720;
-	  const lateChance = 0.22;
+    var targets = Array.from(root.querySelectorAll(".ei-boot-chunk"));
+    if (targets.length === 0) {
+      root.classList.remove("ei-booting-full");
+      return 0;
+    }
 
-	  targets.forEach(function (el) {
-		const early = Math.random() > lateChance;
-		const delay = early ? rand(0, maxDelay) : rand(maxDelay * 0.55, maxDelay * 1.35);
-		const dur = rand(1050, 1750);
-		const seed = rand(0, 999);
+    function rand(min, max) {
+      return min + Math.random() * (max - min);
+    }
 
-		el.style.setProperty("--ei-fd", Math.floor(delay) + "ms");
-		el.style.setProperty("--ei-fdur", Math.floor(dur) + "ms");
-		el.style.setProperty("--ei-fseed", seed.toFixed(2));
-	  });
-		root.classList.remove("ei-booting-full");
-	  runFullBoot._t = window.setTimeout(function () {
-		
-	  }, 2200);
-	}
+    targets.forEach(function (el) {
+      el.style.removeProperty("--ei-fd");
+      el.style.removeProperty("--ei-fdur");
+      el.style.removeProperty("--ei-fseed");
+    });
 
-	function runCascadeIn(root) {
-	  // Remove any prior cascade
-	  const prev = root.querySelectorAll(".ei-cascade-in");
-	  prev.forEach(function (el) {
-		el.classList.remove("ei-cascade-in");
-		el.style.removeProperty("--ei-cd");
-	  });
+    root.classList.add("ei-booting-full");
 
-	  // Only cascade real content chunks
-	  const chunks = Array.from(root.querySelectorAll(".ei-boot-chunk"));
+    var maxDelay = 720;
+    var lateChance = 0.22;
 
-	  function priorityOf(el) {
-		if (el.hasAttribute("data-ei-cascade-first")) return -100000;
-		const p = el.closest("[data-ei-cascade-first]");
-		return p ? -100000 : 0;
-	  }
+    targets.forEach(function (el) {
+      var early = Math.random() > lateChance;
+      var delay = early ? rand(0, maxDelay) : rand(maxDelay * 0.55, maxDelay * 1.35);
+      var dur = rand(1050, 1750);
+      var seed = rand(0, 999);
 
-	  // Sort by priority, then by on-screen position (top-to-bottom)
-	  chunks.sort(function (a, b) {
-		const pa = priorityOf(a);
-		const pb = priorityOf(b);
-		if (pa !== pb) return pa - pb;
+      el.style.setProperty("--ei-fd", Math.floor(delay) + "ms");
+      el.style.setProperty("--ei-fdur", Math.floor(dur) + "ms");
+      el.style.setProperty("--ei-fseed", seed.toFixed(2));
+    });
 
-		const ra = a.getBoundingClientRect();
-		const rb = b.getBoundingClientRect();
-		return (ra.top - rb.top) || (ra.left - rb.left);
-	  });
+    runFullBoot._t = window.setTimeout(function () {
+      root.classList.remove("ei-booting-full");
+    }, BOOT_DURATION_MS);
 
-	  for (let i = 0; i < chunks.length; i++) {
-		const el = chunks[i];
-		el.style.setProperty("--ei-cd", (i * 38) + "ms");
-		el.classList.add("ei-cascade-in");
-	  }
-	}
+    return BOOT_DURATION_MS;
+  }
 
-	function startVersionLabelEnforcer(version) {
-	  applyVersionLabel(version);
-	  window.setTimeout(function () { applyVersionLabel(version); }, 300);
-	  window.setTimeout(function () { applyVersionLabel(version); }, 1200);
-	  window.setTimeout(function () { applyVersionLabel(version); }, 2500);
+  function runCascadeIn(root) {
+    var prev = root.querySelectorAll(".ei-cascade-in");
+    prev.forEach(function (el) {
+      el.classList.remove("ei-cascade-in");
+      el.style.removeProperty("--ei-cd");
+    });
 
-	  if (!window.MutationObserver) return;
-	  const observer = new MutationObserver(function () {
-		applyVersionLabel(version);
-	  });
-	  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
-	}
+    var chunks = Array.from(root.querySelectorAll(".ei-boot-chunk")).filter(function (el) {
+      return !el.classList.contains("ei-topnav") && !el.closest(".ei-topnav");
+    });
 
-	function applyVersionLabel(version) {
-	  const normalizedLabel = "Esoteric Inc Subsystems Version " + version;
-	  const versionLabelPattern = /(Esoteric\s+In(?:k|c)\s+Subsystems(?:\s+Version)?\s*)(\d+(?:\.\d+)?)/i;
+    function priorityOf(el) {
+      if (el.hasAttribute("data-ei-cascade-first")) return -100000;
+      return el.closest("[data-ei-cascade-first]") ? -100000 : 0;
+    }
 
-	  // Explicit top-bar targets first: some themes split text into nested spans.
-	  const titleTargets = document.querySelectorAll(
-		".ei-topnav-title, .ei-topnav-brand, .topnav-title, [class*='topnav'][class*='title'], .site-title, .navbar-brand, header [class*='title']"
-	  );
-	  titleTargets.forEach(function (el) {
-		const text = (el.textContent || "").trim();
-		if (!text) return;
-		if (/Esoteric\s+In(?:k|c)\s+Subsystems/i.test(text)) {
-		  el.textContent = normalizedLabel;
-		}
-	  });
+    chunks.sort(function (a, b) {
+      var pa = priorityOf(a);
+      var pb = priorityOf(b);
+      if (pa !== pb) return pa - pb;
 
-	  // Generic fallback: replace anywhere this label appears.
-	  const allNodes = document.querySelectorAll("body *");
-	  allNodes.forEach(function (el) {
-		if (!el || el.children.length > 0) return;
-		const text = el.textContent;
-		if (!text || !versionLabelPattern.test(text)) return;
-		el.textContent = text.replace(versionLabelPattern, "$1" + version);
-	  });
+      var ra = a.getBoundingClientRect();
+      var rb = b.getBoundingClientRect();
+      return (ra.top - rb.top) || (ra.left - rb.left);
+    });
 
-	}
+    for (var i = 0; i < chunks.length; i += 1) {
+      var el = chunks[i];
+      el.style.setProperty("--ei-cd", i * 38 + "ms");
+      el.classList.add("ei-cascade-in");
+    }
+  }
 
-	function applyTemporaryServiceStatus() {
-	  const path = (window.location && window.location.pathname) ? window.location.pathname.toLowerCase() : "/";
-	  const isHome = path === "/" || path === "/home" || path === "/home/";
-	  const root = document.getElementById("main") || document.getElementById("ei-spa-root") || document.body;
+  function startVersionLabelEnforcer(version) {
+    applyVersionLabel(version);
 
-	  const homeNavLinks = document.querySelectorAll(".ei-topnav-button[href='/'], .ei-topnav-button[href='/home/'], .ei-topnav-button[href='/home']");
-	  homeNavLinks.forEach(function (link) {
-		const current = (link.textContent || "").trim();
-		if (!current) return;
-		if (/temp down/i.test(current)) return;
-		link.textContent = current + " (TEMP DOWN)";
-	  });
+    if (Array.isArray(startVersionLabelEnforcer._timers)) {
+      startVersionLabelEnforcer._timers.forEach(function (timerId) {
+        window.clearTimeout(timerId);
+      });
+    }
 
-	  if (!isHome) return;
+    startVersionLabelEnforcer._timers = [
+      window.setTimeout(function () {
+        applyVersionLabel(version);
+      }, 300),
+      window.setTimeout(function () {
+        applyVersionLabel(version);
+      }, 1200),
+      window.setTimeout(function () {
+        applyVersionLabel(version);
+      }, 2500)
+    ];
 
-	  if (!document.getElementById("ei-home-temp-status")) {
-		const notice = document.createElement("section");
-		notice.id = "ei-home-temp-status";
-		notice.className = "ei-panel ei-boot-chunk";
-		notice.style.marginBottom = "1.25rem";
-		notice.innerHTML =
-		  "<h2 class='ei-section-title'>Homepage Temporary Downstate</h2>" +
-		  "<p>Home is in temporary maintenance and will be back within 24 hours.</p>" +
-		  "<div class='ei-callout'><strong>Service status:</strong> Socials and About are online right now.</div>";
+    if (!window.MutationObserver || !document.body) return;
 
-		const shell = root.querySelector(".ei-shell") || root;
-		const nav = shell.querySelector(".ei-topnav");
-		if (nav && nav.parentNode) {
-		  nav.insertAdjacentElement("afterend", notice);
-		} else {
-		  shell.insertBefore(notice, shell.firstChild);
-		}
-	  }
+    if (startVersionLabelEnforcer._observer) {
+      startVersionLabelEnforcer._observer.disconnect();
+    }
 
-	  const sectionsToHide = root.querySelectorAll(".ei-stream, .ei-home-stack, .ei-contact, .ei-footer");
-	  sectionsToHide.forEach(function (el) {
-		el.style.display = "none";
-	  });
+    var queued = false;
+    function applyQueued() {
+      if (queued) return;
+      queued = true;
+      window.requestAnimationFrame(function () {
+        queued = false;
+        applyVersionLabel(version);
+      });
+    }
 
-	  const homeSubtitle = root.querySelector(".ei-hero .ei-subtitle, .ei-subtitle");
-	  if (homeSubtitle) {
-		homeSubtitle.textContent = "Homepage is temporarily down for maintenance. Socials and About remain available.";
-	  }
-	}
+    var observer = new MutationObserver(function () {
+      applyQueued();
+    });
 
-	if (document.readyState === "loading") {
-	  document.addEventListener("DOMContentLoaded", initEsotericInk);
-	} else {
-	  initEsotericInk();
-	}
-	})();
+    observer.observe(document.body, { childList: true, subtree: true });
+    startVersionLabelEnforcer._observer = observer;
+  }
+
+  function applyVersionLabel(version) {
+    var normalizedLabel = "ESOTERIC INK SUBSYSTEMS™ v" + version;
+    var versionLabelPattern =
+      /(Esoteric\s+In(?:k|c)\s+Subsystems(?:\s*™)?(?:\s+Version|\s+v)?\s*)(\d+(?:\.\d+)?)/i;
+
+    var titleTargets = document.querySelectorAll(
+      ".ei-topnav-title, .ei-topnav-brand, .topnav-title, [class*='topnav'][class*='title'], .site-title, .navbar-brand, header [class*='title']"
+    );
+
+    titleTargets.forEach(function (el) {
+      var text = (el.textContent || "").trim();
+      if (!text) return;
+      if (/Esoteric\s+In(?:k|c)\s+Subsystems/i.test(text)) {
+        el.textContent = normalizedLabel;
+      }
+    });
+
+    if (!document.body || !document.createTreeWalker) return;
+
+    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+    var node = walker.nextNode();
+
+    while (node) {
+      var parent = node.parentElement;
+      if (
+        parent &&
+        parent.tagName !== "SCRIPT" &&
+        parent.tagName !== "STYLE" &&
+        versionLabelPattern.test(node.nodeValue)
+      ) {
+        node.nodeValue = node.nodeValue.replace(versionLabelPattern, "$1" + version);
+      }
+      node = walker.nextNode();
+    }
+  }
+
+  function applyTemporaryServiceStatus() {
+    var path = window.location && window.location.pathname ? window.location.pathname.toLowerCase() : "/";
+    var isHome =
+      path === "/" ||
+      path === "/home" ||
+      path === "/home/" ||
+      path.endsWith("/index.html") ||
+      path.endsWith("/home.html");
+    var root = document.getElementById("ei-spa-root") || document.getElementById("main") || document.body;
+
+    var homeNavLinks = document.querySelectorAll(
+      ".ei-topnav-button[href='/'], .ei-topnav-button[href='/home/'], .ei-topnav-button[href='/home'], .ei-topnav-button[href='index.html'], .ei-topnav-button[href='./'], .ei-topnav-button[href='home.html']"
+    );
+
+    homeNavLinks.forEach(function (link) {
+      var current = (link.textContent || "").trim();
+      if (!current) return;
+      if (/temp down/i.test(current)) return;
+      link.textContent = current + " (TEMP DOWN)";
+    });
+
+    if (!isHome) return;
+
+    if (!document.getElementById("ei-home-temp-status")) {
+      var notice = document.createElement("section");
+      notice.id = "ei-home-temp-status";
+      notice.className = "ei-panel ei-boot-chunk";
+      notice.style.marginBottom = "1.25rem";
+      notice.innerHTML =
+        "<h2 class='ei-section-title'>Homepage Temporary Downstate</h2>" +
+        "<p>Home is in temporary maintenance and will be back within 24 hours.</p>" +
+        "<div class='ei-callout'><strong>Service status:</strong> Socials and About are online right now.</div>";
+
+      var shell = root.querySelector(".ei-shell") || root;
+      var nav = shell.querySelector(".ei-topnav");
+      if (nav && nav.parentNode) {
+        nav.insertAdjacentElement("afterend", notice);
+      } else {
+        shell.insertBefore(notice, shell.firstChild);
+      }
+    }
+
+    var sectionsToHide = root.querySelectorAll(".ei-stream, .ei-home-stack, .ei-contact, .ei-footer");
+    sectionsToHide.forEach(function (el) {
+      el.style.display = "none";
+    });
+
+    var homeSubtitle = root.querySelector(".ei-hero .ei-subtitle, .ei-subtitle");
+    if (homeSubtitle) {
+      homeSubtitle.textContent =
+        "Homepage is temporarily down for maintenance. Socials and About remain available.";
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initEsotericInk);
+  } else {
+    initEsotericInk();
+  }
+})();
