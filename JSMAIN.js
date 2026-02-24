@@ -14,6 +14,7 @@
     animate first in the cascade.
 ============================================================= */
 	document.addEventListener("DOMContentLoaded", function () {
+		forceSubsystemVersion("3.14");
 		//const root = document.getElementById("ei-spa-root");
 		const root = document.getElementById("main");
 		if (!root) return;
@@ -98,5 +99,17 @@
 		el.style.setProperty("--ei-cd", (i * 38) + "ms");
 		el.classList.add("ei-cascade-in");
 	  }
+	}
+
+	function forceSubsystemVersion(version) {
+	  const versionLabelPattern = /(Esoteric\s+Ink\s+Subsystems\s+Version\s*)(\d+(?:\.\d+)?)/i;
+	  const leafNodes = document.querySelectorAll("body *");
+
+	  leafNodes.forEach(function (el) {
+		if (el.children.length > 0) return;
+		const text = el.textContent;
+		if (!text || !versionLabelPattern.test(text)) return;
+		el.textContent = text.replace(versionLabelPattern, "$1" + version);
+	  });
 	}
 });
