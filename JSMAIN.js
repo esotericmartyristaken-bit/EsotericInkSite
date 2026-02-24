@@ -15,8 +15,9 @@
 ============================================================= */
 	document.addEventListener("DOMContentLoaded", function () {
 		startVersionLabelEnforcer("3.14");
+		applyTemporaryServiceStatus();
 		//const root = document.getElementById("ei-spa-root");
-		const root = document.getElementById("main");
+		const root = document.getElementById("main") || document.getElementById("ei-spa-root");
 		if (!root) return;
 	  	// Run the flicker boot (random stagger).
 		// Not sure if actually needed. 
@@ -139,5 +140,50 @@
 		el.textContent = text.replace(versionLabelPattern, "$1" + version);
 	  });
 
+	}
+
+	function applyTemporaryServiceStatus() {
+	  const path = (window.location && window.location.pathname) ? window.location.pathname.toLowerCase() : "/";
+	  const isHome = path === "/" || path === "/home" || path === "/home/";
+	  const root = document.getElementById("main") || document.getElementById("ei-spa-root") || document.body;
+
+	  const homeNavLinks = document.querySelectorAll(".ei-topnav-button[href='/'], .ei-topnav-button[href='/home/'], .ei-topnav-button[href='/home']");
+	  homeNavLinks.forEach(function (link) {
+		const current = (link.textContent || "").trim();
+		if (!current) return;
+		if (/temp down/i.test(current)) return;
+		link.textContent = current + " (TEMP DOWN)";
+	  });
+
+	  if (!isHome) return;
+
+	  if (!document.getElementById("ei-home-temp-status")) {
+		const notice = document.createElement("section");
+		notice.id = "ei-home-temp-status";
+		notice.className = "ei-panel ei-boot-chunk";
+		notice.style.marginBottom = "1.25rem";
+		notice.innerHTML =
+		  "<h2 class='ei-section-title'>Homepage Temporary Downstate</h2>" +
+		  "<p>Home is in temporary maintenance and will be back within 24 hours.</p>" +
+		  "<div class='ei-callout'><strong>Service status:</strong> Socials and About are online right now.</div>";
+
+		const shell = root.querySelector(".ei-shell") || root;
+		const nav = shell.querySelector(".ei-topnav");
+		if (nav && nav.parentNode) {
+		  nav.insertAdjacentElement("afterend", notice);
+		} else {
+		  shell.insertBefore(notice, shell.firstChild);
+		}
+	  }
+
+	  const sectionsToHide = root.querySelectorAll(".ei-stream, .ei-home-stack, .ei-contact, .ei-footer");
+	  sectionsToHide.forEach(function (el) {
+		el.style.display = "none";
+	  });
+
+	  const homeSubtitle = root.querySelector(".ei-hero .ei-subtitle, .ei-subtitle");
+	  if (homeSubtitle) {
+		homeSubtitle.textContent = "Homepage is temporarily down for maintenance. Socials and About remain available.";
+	  }
 	}
 });
