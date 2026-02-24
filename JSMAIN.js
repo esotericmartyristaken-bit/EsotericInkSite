@@ -14,7 +14,7 @@
     animate first in the cascade.
 ============================================================= */
 	document.addEventListener("DOMContentLoaded", function () {
-		syncVersionLabel("3.14");
+		startVersionLabelEnforcer("3.14");
 		//const root = document.getElementById("ei-spa-root");
 		const root = document.getElementById("main");
 		if (!root) return;
@@ -101,24 +101,31 @@
 	  }
 	}
 
-	function syncVersionLabel(version) {
+	function startVersionLabelEnforcer(version) {
 	  applyVersionLabel(version);
 	  window.setTimeout(function () { applyVersionLabel(version); }, 300);
 	  window.setTimeout(function () { applyVersionLabel(version); }, 1200);
+	  window.setTimeout(function () { applyVersionLabel(version); }, 2500);
+
+	  if (!window.MutationObserver) return;
+	  const observer = new MutationObserver(function () {
+		applyVersionLabel(version);
+	  });
+	  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
 	}
 
 	function applyVersionLabel(version) {
 	  const normalizedLabel = "Esoteric Inc Subsystems Version " + version;
-	  const versionLabelPattern = /(Esoteric\s+In(?:k|c)\s+Subsystems\s+Version\s*)(\d+(?:\.\d+)?)/i;
+	  const versionLabelPattern = /(Esoteric\s+In(?:k|c)\s+Subsystems(?:\s+Version)?\s*)(\d+(?:\.\d+)?)/i;
 
 	  // Explicit top-bar targets first: some themes split text into nested spans.
 	  const titleTargets = document.querySelectorAll(
-		".ei-topnav-title, .ei-topnav-brand, .topnav-title, [class*='topnav'][class*='title']"
+		".ei-topnav-title, .ei-topnav-brand, .topnav-title, [class*='topnav'][class*='title'], .site-title, .navbar-brand, header [class*='title']"
 	  );
 	  titleTargets.forEach(function (el) {
 		const text = (el.textContent || "").trim();
 		if (!text) return;
-		if (/Esoteric\s+In(?:k|c)\s+Subsystems\s+Version/i.test(text)) {
+		if (/Esoteric\s+In(?:k|c)\s+Subsystems/i.test(text)) {
 		  el.textContent = normalizedLabel;
 		}
 	  });
@@ -126,6 +133,7 @@
 	  // Generic fallback: replace anywhere this label appears.
 	  const allNodes = document.querySelectorAll("body *");
 	  allNodes.forEach(function (el) {
+		if (!el || el.children.length > 0) return;
 		const text = el.textContent;
 		if (!text || !versionLabelPattern.test(text)) return;
 		el.textContent = text.replace(versionLabelPattern, "$1" + version);
