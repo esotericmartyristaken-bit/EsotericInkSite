@@ -1,0 +1,1197 @@
+/* =============================================================
+  Esoteric Ink - WordPress modular version
+  -------------------------------------------------------------
+  WHAT CHANGED vs your mega script:
+  - Navigation is now real WordPress pages (Home/Socials/About).
+  - Boot flicker no longer "flashes" before animating:
+    Each page starts with #ei-spa-root.ei-booting-full in the HTML.
+  - We keep your visuals and animations 1:1 otherwise.
+
+  MOBILE FIXES (scoped to touch + small widths):
+  - Top nav: prevent title/buttons from sticking out; allow wrapping,
+    tighter paddings, and sane gaps.
+  - Twitter/Discord cards: hard override for mobile theme collisions that
+    cause per-letter breaking / “vertical” stacking.
+  - Twitter-only scroll artifact fix: on mobile, remove the risky
+    blend/filter pseudo-overlay that can get “stuck” after tap+scroll.
+============================================================= */
+
+/* =============================================================
+  THEME TOKENS
+============================================================= */
+:root {
+  --ei-bg: #060712;
+  --ei-bg-soft: #0f111d;
+
+  --ei-text-main: #e2e6f2;
+  --ei-text-soft: #a5adc0;
+  --ei-text-muted: #7c8597;
+  --ei-text-strong: #ffffff;
+
+  --ei-pink: #ff6ecf;
+  --ei-purple: #b28bff;
+  --ei-blue: #3f82ff;
+
+  --ei-radius-pill: 999px;
+
+  --ei-shadow-soft: 0 18px 45px rgba(0, 0, 0, 0.55);
+  --ei-shadow-card: 0 12px 30px rgba(0, 0, 0, 0.55);
+
+  --ei-boot-total: 1.85s;
+
+  --ei-cascade-dur: 520ms;
+  --ei-cascade-step: 38ms;
+}
+
+body {
+  background-color: var(--ei-bg);
+  color: var(--ei-text-main);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* =============================================================
+  NO TEXT-CARET ON INTERACTIVE ELEMENTS
+============================================================= */
+a, button, [role="button"] {
+  cursor: pointer;
+  caret-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+p, h1, h2, h3, span, li,
+.ei-stream-text, .ei-route-text, .ei-socials-subtitle, .ei-subtitle {
+  -webkit-user-select: text;
+  user-select: text;
+  caret-color: auto;
+  cursor: default;
+}
+
+/* =============================================================
+  SPA ROOT
+============================================================= */
+#ei-spa-root {
+  position: relative;
+  min-height: 100vh;
+  background: var(--ei-bg);
+  color: var(--ei-text-main);
+  overflow: hidden;
+}
+
+/* =============================================================
+  BACKGROUND (moody gradients)
+============================================================= */
+.ei-bg-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--ei-bg);
+  overflow: hidden;
+
+  opacity: 1;
+  filter: saturate(1.0) contrast(1.0);
+  transform: translateZ(0);
+}
+
+.ei-bg-overlay::before {
+  content: "";
+  position: absolute;
+  inset: -18%;
+  background:
+    radial-gradient(circle at 50% 46%,
+      rgba(178,139,255,0.10) 0%,
+      rgba(178,139,255,0.06) 16%,
+      rgba(255,110,207,0.05) 28%,
+      rgba(255,110,207,0.00) 44%,
+      rgba(63,130,255,0.04) 54%,
+      rgba(63,130,255,0.00) 70%,
+      rgba(0,0,0,0.00) 100%),
+    radial-gradient(circle at 12% 28%,
+      rgba(255,110,207,0.10) 0%,
+      rgba(255,110,207,0.00) 62%),
+    radial-gradient(circle at 88% 62%,
+      rgba(63,130,255,0.10) 0%,
+      rgba(63,130,255,0.00) 66%),
+    radial-gradient(circle at 66% 18%,
+      rgba(178,139,255,0.10) 0%,
+      rgba(178,139,255,0.00) 60%);
+  filter: blur(42px) saturate(1.25) contrast(1.10);
+  opacity: 0.70;
+  mix-blend-mode: screen;
+  transform: translateZ(0);
+  animation: eiBgDriftA 18s ease-in-out infinite;
+}
+
+.ei-bg-overlay::after {
+  content: "";
+  position: absolute;
+  inset: -22%;
+  background:
+    repeating-linear-gradient(118deg,
+      rgba(255,255,255,0.020) 0px,
+      rgba(255,255,255,0.020) 9px,
+      rgba(0,0,0,0.00) 18px,
+      rgba(0,0,0,0.00) 44px),
+    radial-gradient(circle at 24% 78%,
+      rgba(178,139,255,0.08) 0%,
+      rgba(178,139,255,0.00) 64%),
+    radial-gradient(circle at 74% 72%,
+      rgba(255,110,207,0.07) 0%,
+      rgba(255,110,207,0.00) 62%);
+  filter: blur(32px) saturate(1.15) contrast(1.08);
+  opacity: 0.55;
+  mix-blend-mode: screen;
+  transform: translateZ(0);
+  animation: eiBgDriftB 26s ease-in-out infinite;
+}
+
+@keyframes eiBgDriftA {
+  0%   { transform: translate3d(0, 0, 0) scale(1.02); }
+  50%  { transform: translate3d(0, -1.4%, 0) scale(1.06); }
+  100% { transform: translate3d(0, 0, 0) scale(1.02); }
+}
+@keyframes eiBgDriftB {
+  0%   { transform: translate3d(0, 0, 0) scale(1.04); }
+  50%  { transform: translate3d(0.9%, 0.6%, 0) scale(1.07); }
+  100% { transform: translate3d(0, 0, 0) scale(1.04); }
+}
+
+/* =============================================================
+  FULL BOOT (initial load)
+============================================================= */
+#ei-spa-root.ei-booting-full .ei-bg-overlay {
+  opacity: 0.0;
+  filter: saturate(1.35) contrast(1.25) brightness(0.55);
+  animation: eiBgBootSwirl var(--ei-boot-total) ease-out forwards;
+}
+#ei-spa-root.ei-booting-full .ei-bg-overlay::before,
+#ei-spa-root.ei-booting-full .ei-bg-overlay::after {
+  transform-origin: 50% 50%;
+  animation: eiBgLayerSwirl var(--ei-boot-total) ease-out forwards;
+}
+#ei-spa-root.ei-booting-full .ei-bg-overlay::after {
+  animation:
+    eiBgLayerSwirl var(--ei-boot-total) ease-out forwards,
+    eiBgCenterFlicker var(--ei-boot-total) ease-out forwards;
+}
+
+@keyframes eiBgBootSwirl {
+  0%   { opacity: 0;    filter: saturate(1.9) contrast(1.35) brightness(0.18); }
+  18%  { opacity: 0.14; filter: saturate(1.8) contrast(1.30) brightness(0.55); }
+  34%  { opacity: 0.24; filter: saturate(2.0) contrast(1.35) brightness(0.48); }
+  56%  { opacity: 0.78; filter: saturate(1.35) contrast(1.18) brightness(0.95); }
+  78%  { opacity: 0.64; filter: saturate(1.15) contrast(1.08) brightness(1.0); }
+  100% { opacity: 1.0;  filter: saturate(1.00) contrast(1.00) brightness(1.00); }
+}
+
+@keyframes eiBgLayerSwirl {
+  0%   { transform: translate3d(0,0,0) scale(1.22) rotate(-14deg); }
+  32%  { transform: translate3d(0,0,0) scale(1.10) rotate(9deg); }
+  62%  { transform: translate3d(0,0,0) scale(1.05) rotate(-4deg); }
+  100% { transform: translate3d(0,0,0) scale(1.02) rotate(0deg); }
+}
+
+@keyframes eiBgCenterFlicker {
+  0%, 70% { filter: blur(32px) saturate(1.15) contrast(1.08); }
+  78%     { filter: blur(30px) saturate(1.22) contrast(1.12); }
+  84%     { filter: blur(33px) saturate(1.12) contrast(1.06); }
+  90%     { filter: blur(31px) saturate(1.18) contrast(1.10); }
+  100%    { filter: blur(32px) saturate(1.15) contrast(1.08); }
+}
+
+.ei-boot-chunk {
+  --ei-fd: 0ms;
+  --ei-fdur: 1200ms;
+  --ei-fseed: 0;
+  filter: saturate(1.0) contrast(1.0) brightness(1.0);
+}
+
+#ei-spa-root.ei-booting-full .ei-boot-chunk {
+  opacity: 0.0;
+  transform: translate3d(0, 0, 0);
+  animation: eiPowerFlickerFull var(--ei-fdur) both;
+  animation-delay: var(--ei-fd);
+  will-change: opacity, filter, transform;
+}
+
+@keyframes eiPowerFlickerFull {
+  0%   { opacity: 0.00; filter: brightness(0.92) saturate(1.02) contrast(1.00); transform: translate3d(0, 2px, 0); }
+  8%   { opacity: 0.22; filter: brightness(1.12) saturate(1.15) contrast(1.05); transform: translate3d(0, -1px, 0); }
+  15%  { opacity: 0.10; filter: brightness(0.98) saturate(1.05) contrast(1.02); transform: translate3d(0, 1px, 0); }
+  26%  { opacity: 0.55; filter: brightness(1.10) saturate(1.18) contrast(1.06); transform: translate3d(0, 0, 0); }
+  34%  { opacity: 0.30; filter: brightness(1.18) saturate(1.25) contrast(1.10); transform: translate3d(0, -1px, 0); }
+  48%  { opacity: 0.78; filter: brightness(1.06) saturate(1.14) contrast(1.04); transform: translate3d(0, 0, 0); }
+  62%  { opacity: 0.88; filter: brightness(1.04) saturate(1.10) contrast(1.03); transform: translate3d(0, 0, 0); }
+  78%  { opacity: 0.96; filter: brightness(1.02) saturate(1.06) contrast(1.02); transform: translate3d(0, 0, 0); }
+  100% { opacity: 1.00; filter: none; transform: translate3d(0, 0, 0); }
+}
+
+#ei-spa-root.ei-booting-full .ei-stream-item,
+#ei-spa-root.ei-booting-full .ei-route-card,
+#ei-spa-root.ei-booting-full .ei-topnav-button,
+#ei-spa-root.ei-booting-full .ei-beta-banner {
+  animation-name: eiPowerFlickerFull, eiGlowPulseSoft;
+  animation-duration: var(--ei-fdur), calc(var(--ei-fdur) * 1.0);
+  animation-delay: var(--ei-fd), var(--ei-fd);
+  animation-timing-function: linear, ease-out;
+  animation-fill-mode: both, both;
+}
+
+@keyframes eiGlowPulseSoft {
+  0%   { box-shadow: none; }
+  40%  { box-shadow: 0 0 18px rgba(63,130,255,0.14), 0 0 32px rgba(255,110,207,0.10); }
+  65%  { box-shadow: 0 0 10px rgba(178,139,255,0.08); }
+  100% { box-shadow: none; }
+}
+
+/* =============================================================
+  PAGE LOAD CASCADE (used after boot ends)
+============================================================= */
+.ei-cascade-in {
+  opacity: 0;
+  transform: translate3d(0, 10px, 0);
+  filter: blur(2px);
+  animation: eiCascadeIn var(--ei-cascade-dur) cubic-bezier(0.22, 0.80, 0.20, 1.0) forwards;
+  animation-delay: var(--ei-cd, 0ms);
+  will-change: opacity, transform, filter;
+}
+
+@keyframes eiCascadeIn {
+  0%   { opacity: 0; transform: translate3d(0, 12px, 0); filter: blur(2px); }
+  100% { opacity: 1; transform: translate3d(0, 0px, 0); filter: blur(0px); }
+}
+
+/* =============================================================
+  LAYOUT SHELL
+============================================================= */
+.ei-shell {
+  max-width: 1520px;
+  margin: 0 auto;
+  padding: 2.2rem 1.8rem 2.6rem;
+  position: relative;
+  z-index: 2;
+}
+
+/* =============================================================
+  TOP NAV
+============================================================= */
+.ei-topnav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.8rem;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(255, 110, 207, 0.18), transparent 65%),
+    radial-gradient(circle at 100% 50%, rgba(63, 130, 255, 0.22), transparent 60%),
+    rgba(7, 9, 18, 0.98);
+  border-radius: 999px;
+  padding: 0.65rem 1.1rem;
+  border: 1px solid rgba(110, 125, 190, 0.95);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(14px);
+  position: relative;
+  overflow: hidden;
+}
+
+.ei-topnav::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 10% -20%, rgba(255, 255, 255, 0.10), transparent 55%),
+    radial-gradient(circle at 90% 120%, rgba(10, 20, 60, 0.78), transparent 70%);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.ei-topnav-brand { display: flex; align-items: baseline; gap: 0.4rem; position: relative; z-index: 1; }
+
+.ei-topnav-title {
+  font-size: 0.92rem;
+  font-weight: 650;
+  color: rgba(226, 230, 242, 0.82);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  white-space: nowrap;
+}
+
+.ei-topnav-links { display: flex; gap: 0.5rem; position: relative; z-index: 1; flex-wrap: wrap; }
+
+.ei-topnav-button {
+  border-radius: var(--ei-radius-pill);
+  border: 1px solid rgba(104, 113, 150, 0.9);
+  padding: 0.42rem 0.98rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  background: rgba(10, 13, 22, 0.95);
+  color: var(--ei-text-soft);
+  cursor: pointer;
+  transition:
+    background 0.16s ease-out,
+    color 0.16s ease-out,
+    border-color 0.16s ease-out,
+    transform 0.12s ease-out,
+    box-shadow 0.12s ease-out,
+    filter 0.16s ease-out;
+  position: relative;
+  overflow: hidden;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.ei-topnav-button::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(255,110,207,0.34), transparent 58%),
+    radial-gradient(circle at 90% 70%, rgba(63,130,255,0.26), transparent 60%),
+    repeating-linear-gradient(120deg,
+      rgba(255,255,255,0.05) 0px,
+      rgba(255,255,255,0.05) 8px,
+      rgba(0,0,0,0.00) 16px,
+      rgba(0,0,0,0.00) 34px);
+  filter: blur(10px) contrast(1.15) saturate(1.3);
+  mix-blend-mode: screen;
+  transition: opacity 0.16s ease-out;
+}
+
+.ei-topnav-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 110, 207, 0.85);
+  color: var(--ei-text-strong);
+  box-shadow: 0 0 22px rgba(255, 110, 207, 0.55);
+  filter: saturate(1.05);
+}
+.ei-topnav-button:hover::after { opacity: 0.55; }
+
+.ei-topnav-button:active {
+  transform: translateY(0px) scale(0.985);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 0 18px rgba(63,130,255,0.18), 0 0 26px rgba(255,110,207,0.14);
+  filter: saturate(1.12) contrast(1.05);
+}
+
+.ei-topnav-button[aria-current="page"] {
+  background: linear-gradient(135deg, var(--ei-blue), var(--ei-pink));
+  border-color: rgba(255, 255, 255, 0.9);
+  color: var(--ei-text-strong);
+  box-shadow: 0 0 26px rgba(63, 130, 255, 0.9);
+}
+
+.ei-topnav-button:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
+
+/* =============================================================
+  VIEW WRAPPER
+============================================================= */
+.ei-views { position: relative; min-height: 60vh; }
+.ei-view { display: block; }
+
+/* Overlay + frame */
+.ei-page-transition-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at center, rgba(0, 0, 0, 0.22), transparent 65%);
+  opacity: 0;
+  transition: opacity 0.35s ease-out;
+  z-index: 3;
+}
+.ei-page-transition-overlay.is-active { opacity: 1; }
+
+.ei-neon-frame {
+  pointer-events: none;
+  position: fixed;
+  inset: -12px;
+  border-radius: 26px;
+  border: 2px solid rgba(255, 110, 207, 0.22);
+  box-shadow: 0 0 55px rgba(255, 110, 207, 0.75), 0 0 110px rgba(178, 139, 255, 0.55);
+  opacity: 1;
+  z-index: 2;
+}
+
+.ei-section-title { margin: 0 0 0.4rem; font-size: 1.4rem; color: var(--ei-text-strong); }
+.ei-section-subtitle { margin: 0 0 1.1rem; font-size: 0.95rem; color: var(--ei-text-soft); }
+
+/* =============================================================
+  HOME - HERO
+============================================================= */
+.ei-hero { margin-bottom: 2.4rem; }
+.ei-hero-inner { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.2rem; align-items: center; }
+
+.ei-hero-text {
+  position: relative;
+  background: linear-gradient(135deg, rgba(21, 25, 37, 0.97), rgba(10, 12, 24, 0.98));
+  border-radius: 26px;
+  padding: 1.9rem 2.1rem;
+  padding-right: 18rem;
+  box-shadow: var(--ei-shadow-soft);
+  border: 1px solid rgba(194, 162, 255, 0.08);
+  backdrop-filter: blur(16px);
+  overflow: hidden;
+  z-index: 0;
+}
+
+.ei-hero-text::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(255, 110, 207, 0.70), transparent 60%),
+    radial-gradient(circle at 100% 100%, rgba(178, 139, 255, 0.76), transparent 60%);
+  opacity: 0.9;
+  z-index: -1;
+}
+
+.ei-hero-text::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -1.2rem;
+  transform: translateY(-50%);
+  width: 324px;
+  height: 227px;
+  background-image: url("https://www.esotericink.com/wp-content/uploads/2026/01/G7Rh5CubQAAqmn9-11-scaled.jpg");
+  background-position: right center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  opacity: 0.92;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.25) 18%, rgba(0,0,0,0.85) 46%, #000 70%, #000 100%);
+  mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.25) 18%, rgba(0,0,0,0.85) 46%, #000 70%, #000 100%);
+}
+
+.ei-kicker { font-size: 0.8rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ei-text-muted); margin: 0 0 0.4rem; }
+.ei-title { font-size: clamp(2.4rem, 3.4vw + 1rem, 3.2rem); margin: 0 0 0.4rem; font-weight: 700; color: var(--ei-text-strong); }
+.ei-subtitle { margin: 0; font-size: 0.98rem; color: var(--ei-text-soft); max-width: 44rem; line-height: 1.5; }
+
+/* =============================================================
+  HOME - LINK CARDS
+============================================================= */
+.ei-stream { margin-top: 0.2rem; margin-bottom: 2.2rem; }
+.ei-stream-rows { display: grid; gap: 2.6rem; }
+
+.ei-stream-row--single { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; }
+.ei-stream-row--double {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 3.2rem;
+  align-items: stretch;
+}
+
+.ei-stream-item {
+  position: relative;
+  display: block;
+  width: min(720px, 100%);
+  padding: 2.05rem 2.25rem;
+  border-radius: 30px;
+  text-decoration: none;
+  background:
+    radial-gradient(circle at top left, rgba(255, 110, 207, 0.14), transparent 62%),
+    radial-gradient(circle at bottom right, rgba(178, 139, 255, 0.12), transparent 68%),
+    rgba(11, 14, 24, 0.98);
+  border: 1px solid rgba(110, 125, 190, 0.82);
+  color: var(--ei-text-main);
+  box-shadow: var(--ei-shadow-card);
+  overflow: hidden;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease-out,
+    box-shadow 0.18s ease-out,
+    border-color 0.18s ease-out,
+    filter 0.18s ease-out,
+    background 0.18s ease-out;
+  min-height: 170px;
+  box-sizing: border-box;
+}
+
+.ei-stream-item--big { width: min(860px, 100%); padding: 2.35rem 2.55rem; min-height: 190px; }
+
+.ei-stream-item--attention {
+  border-color: rgba(178, 139, 255, 0.92);
+  background:
+    radial-gradient(circle at top left, rgba(63, 130, 255, 0.16), transparent 62%),
+    radial-gradient(circle at bottom right, rgba(255, 110, 207, 0.10), transparent 68%),
+    rgba(11, 14, 24, 0.98);
+}
+
+.ei-stream-item::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s ease-out;
+  transform: translate3d(0,0,0);
+}
+
+.ei-stream-item--twitter:hover,
+.ei-stream-item--discord:hover {
+  transform: translateY(-6px) scale(1.012);
+  border-color: rgba(255, 110, 207, 0.95);
+  box-shadow:
+    0 0 26px rgba(255, 110, 207, 0.42),
+    0 0 54px rgba(178, 139, 255, 0.30),
+    var(--ei-shadow-soft);
+  filter: saturate(1.06);
+  background:
+    radial-gradient(circle at 12% 10%, rgba(255, 110, 207, 0.18), transparent 62%),
+    radial-gradient(circle at 88% 70%, rgba(63, 130, 255, 0.14), transparent 64%),
+    radial-gradient(circle at 52% 38%, rgba(178, 139, 255, 0.10), transparent 60%),
+    rgba(11, 14, 24, 0.98);
+  background-blend-mode: screen, screen, screen, normal;
+}
+
+.ei-stream-item--twitter::after,
+.ei-stream-item--discord::after {
+  opacity: 0.42;
+  background:
+    repeating-linear-gradient(128deg,
+      rgba(255,255,255,0.00) 0px,
+      rgba(255,255,255,0.00) 12px,
+      rgba(255,255,255,0.030) 12px,
+      rgba(255,255,255,0.030) 15px),
+    radial-gradient(circle at 18% 0%, rgba(255, 110, 207, 0.18), transparent 60%),
+    radial-gradient(circle at 92% 80%, rgba(178, 139, 255, 0.16), transparent 62%);
+  filter:
+    saturate(1.15) contrast(1.06)
+    drop-shadow(0 0 6px rgba(178,139,255,0.12))
+    drop-shadow(0 0 9px rgba(255,110,207,0.08));
+  mix-blend-mode: screen;
+}
+
+.ei-stream-item--twitter:hover::after,
+.ei-stream-item--discord:hover::after { opacity: 0.52; }
+
+.ei-stream-item:not(.ei-stream-item--twitter):not(.ei-stream-item--discord):hover {
+  transform: translateY(-5px) scale(1.010);
+  border-color: rgba(178, 139, 255, 0.92);
+  box-shadow:
+    0 0 22px rgba(63,130,255,0.20),
+    0 0 52px rgba(178,139,255,0.18),
+    var(--ei-shadow-soft);
+  filter: saturate(1.08);
+}
+
+.ei-stream-item:not(.ei-stream-item--twitter):not(.ei-stream-item--discord)::after {
+  background:
+    radial-gradient(circle at 20% 20%, rgba(63,130,255,0.30), transparent 56%),
+    radial-gradient(circle at 78% 70%, rgba(255,110,207,0.22), transparent 58%),
+    radial-gradient(circle at 52% 46%, rgba(178,139,255,0.18), transparent 62%),
+    linear-gradient(120deg, rgba(255,255,255,0.06), rgba(0,0,0,0.00) 38%, rgba(255,255,255,0.03));
+  filter: blur(14px) saturate(1.25) contrast(1.10);
+  mix-blend-mode: screen;
+  background-size: 160% 160%;
+  background-position: 50% 50%;
+  opacity: 0;
+}
+
+.ei-stream-item:not(.ei-stream-item--twitter):not(.ei-stream-item--discord):hover::after {
+  opacity: 0.62;
+  animation: none;
+}
+
+.ei-stream-item:focus-visible { outline: 2px solid #ffffff; outline-offset: 3px; }
+
+.ei-stream-item--discord,
+.ei-stream-item--twitter { padding-right: 12.2rem; }
+.ei-stream-item--big.ei-stream-item--discord,
+.ei-stream-item--big.ei-stream-item--twitter { padding-right: 14.5rem; }
+
+.ei-stream-item--twitter::before,
+.ei-stream-item--discord::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: -1px;
+  width: 45.5%;
+  height: 100%;
+  background-position: right center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  opacity: 0.88;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.18) 26%, rgba(0,0,0,0.92) 52%, #000 74%, #000 100%);
+  mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.18) 26%, rgba(0,0,0,0.92) 52%, #000 74%, #000 100%);
+  filter: saturate(1.02) contrast(1.02);
+}
+
+/* UPDATED HOME BUTTON IMAGES */
+.ei-stream-item--twitter::before {
+  background-image: url("https://www.esotericink.com/wp-content/uploads/2026/01/Oilpainting.png");
+}
+.ei-stream-item--discord::before {
+  background-image: url("https://www.esotericink.com/wp-content/uploads/2026/01/hdiuashiudehw.png");
+}
+
+.ei-stream-tag {
+  display: inline-flex;
+  padding: 0.22rem 0.68rem;
+  border-radius: var(--ei-radius-pill);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ei-text-muted);
+  margin-bottom: 0.5rem;
+  position: relative;
+  z-index: 1;
+}
+
+.ei-stream-title { margin: 0 0 0.3rem; font-size: 1.34rem; color: var(--ei-text-strong); position: relative; z-index: 1; }
+.ei-stream-text { margin: 0; font-size: 1.04rem; color: var(--ei-text-soft); position: relative; z-index: 1; line-height: 1.36; max-width: 56ch; }
+
+.ei-panel {
+  border-radius: 24px;
+  padding: 2.15rem 2.25rem 2.35rem;
+  background: radial-gradient(circle at top right, rgba(178, 139, 255, 0.12), transparent 60%), var(--ei-bg-soft);
+  border: 1px solid rgba(86, 95, 128, 0.9);
+  box-shadow: var(--ei-shadow-card);
+}
+
+.ei-panel p { margin: 0 0 0.8rem; font-size: 0.95rem; color: var(--ei-text-soft); line-height: 1.55; }
+.ei-panel p:last-child { margin-bottom: 0; }
+
+.ei-callout {
+  margin-top: 1rem;
+  border-radius: 18px;
+  padding: 0.95rem 1.05rem;
+  background: radial-gradient(circle at 20% 0%, rgba(255, 110, 207, 0.12), transparent 62%), rgba(11, 14, 24, 0.92);
+  border: 1px solid rgba(110, 125, 190, 0.70);
+  color: var(--ei-text-soft);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+}
+.ei-callout strong { color: var(--ei-text-strong); }
+
+.ei-beta-banner {
+  margin: 0.9rem 0 1.0rem;
+  padding: 0.85rem 1rem;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: linear-gradient(135deg, rgba(63,130,255,0.18), rgba(255,110,207,0.12)), rgba(11,14,24,0.92);
+  box-shadow: 0 12px 28px rgba(0,0,0,0.45);
+}
+
+.ei-beta-banner .ei-beta-title {
+  margin: 0;
+  font-size: 1.35rem;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: rgba(226,230,242,0.92);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.ei-beta-banner .ei-beta-sub {
+  margin: 0.25rem 0 0;
+  color: var(--ei-text-soft);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.ei-home-stack { display: grid; gap: 2.2rem; margin-top: 2.2rem; }
+
+.ei-contact { margin-top: 2.2rem; }
+.ei-contact-inner {
+  border-radius: 24px;
+  padding: 1.8rem 2rem 2rem;
+  background: radial-gradient(circle at bottom left, rgba(255, 110, 207, 0.13), transparent 60%), var(--ei-bg-soft);
+  border: 1px solid rgba(90, 100, 135, 0.9);
+  box-shadow: var(--ei-shadow-card);
+}
+
+.ei-contact-inner p { margin: 0 0 1rem; color: var(--ei-text-soft); line-height: 1.55; }
+
+.ei-contact-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.35rem;
+  max-width: 340px;
+}
+
+.ei-contact-list li {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: start;
+  column-gap: 0.75rem;
+  align-items: baseline;
+  font-size: 0.92rem;
+}
+
+.ei-contact-label {
+  color: var(--ei-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+.ei-contact-value { color: var(--ei-text-soft); white-space: nowrap; }
+
+.ei-footer {
+  margin-top: 2.4rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(58, 63, 75, 0.85);
+  font-size: 0.8rem;
+  color: var(--ei-text-muted);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.ei-footer::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -26px;
+  width: 240px;
+  height: 160px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background-image:
+    radial-gradient(circle at center, rgba(0, 0, 0, 0.7), transparent 70%),
+    url("https://github.com/esotericmartyristaken-bit/EsotericSiteLinking/blob/main/EsoWink.png?raw=true");
+  background-repeat: no-repeat, no-repeat;
+  background-position: 0 0, center;
+  background-size: 100% 100%, 170px;
+  opacity: 0.28;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+/* =============================================================
+  SOCIALS VIEW
+============================================================= */
+.ei-socials-hero {
+  position: relative;
+  border-radius: 26px;
+  overflow: hidden;
+  border: 1px solid rgba(88, 96, 135, 0.9);
+  box-shadow: var(--ei-shadow-soft);
+  margin-bottom: 2.1rem;
+  background: #070912;
+}
+
+.ei-socials-hero-banner {
+  height: 270px;
+  background-image: url("https://www.esotericink.com/wp-content/uploads/2026/01/G69C0_vbkAQDEfO.jpg");
+  background-repeat: no-repeat;
+
+  /* moved down more (shows lower portion of the image) */
+  background-position: center 58%;
+
+  background-size: 128% auto;
+}
+
+
+.ei-socials-hero-content {
+  position: relative;
+  margin-top: -180px;
+  padding: 2.25rem 2rem 2rem;
+  background: linear-gradient(to bottom, rgba(7,9,18,0.0) 0%, rgba(7,9,18,0.82) 78%, rgba(7,9,18,1.0) 100%);
+}
+
+.ei-socials-title { margin: 0 0 0.4rem; font-size: 2.1rem; color: var(--ei-text-strong); }
+.ei-socials-subtitle { margin: 0; font-size: 0.96rem; color: var(--ei-text-soft); line-height: 1.5; }
+
+.ei-route-section + .ei-route-section { margin-top: 2.1rem; }
+
+.ei-route-grid {
+  margin-top: 1.3rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.2rem;
+}
+
+.ei-route-card {
+  padding: 1.1rem 1.3rem;
+  background:
+    radial-gradient(circle at top left, rgba(255, 110, 207, 0.14), transparent 60%),
+    radial-gradient(circle at bottom right, rgba(178, 139, 255, 0.10), transparent 65%),
+    rgba(11, 14, 24, 0.98);
+  border-radius: 22px;
+  border: 1px solid rgba(87, 96, 135, 0.95);
+  box-shadow: var(--ei-shadow-card);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.18s ease-out, border-color 0.18s ease-out, box-shadow 0.18s ease-out, filter 0.18s ease-out;
+}
+
+/* Socials overlay: ONE-SHOT movement (transition only) */
+.ei-route-card::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+
+  background:
+    conic-gradient(from 210deg at 48% 46%,
+      rgba(63,130,255,0.00),
+      rgba(63,130,255,0.14),
+      rgba(178,139,255,0.11),
+      rgba(255,110,207,0.12),
+      rgba(255,110,207,0.00)),
+    radial-gradient(circle at 18% 16%, rgba(255,110,207,0.06), transparent 60%),
+    radial-gradient(circle at 84% 70%, rgba(63,130,255,0.06), transparent 62%),
+    repeating-linear-gradient(132deg,
+      rgba(255,255,255,0.014) 0px,
+      rgba(255,255,255,0.014) 10px,
+      rgba(0,0,0,0.00) 20px,
+      rgba(0,0,0,0.00) 52px);
+
+  filter: blur(18px) saturate(1.18) contrast(1.08);
+  mix-blend-mode: screen;
+  background-size: 170% 170%;
+  background-position: 88% 58%;
+
+  transition:
+    opacity 0.18s ease-out,
+    background-position 3.4s cubic-bezier(0.16, 0.90, 0.18, 1.0);
+  transform: translate3d(0,0,0);
+}
+
+.ei-route-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 0 26px rgba(63,130,255,0.16), 0 0 46px rgba(178,139,255,0.14), var(--ei-shadow-soft);
+  filter: saturate(1.05);
+}
+
+.ei-route-card:hover::after {
+  opacity: 0.58;
+  background-position: 46% 48%;
+}
+
+.ei-socials-shell .ei-route-card--discord::before { display: none !important; }
+
+.ei-route-body { display: flex; flex-direction: column; gap: 0.45rem; position: relative; z-index: 1; }
+.ei-route-title { margin: 0; font-size: 1.15rem; color: var(--ei-text-strong); }
+.ei-route-text { margin: 0; font-size: 0.9rem; color: var(--ei-text-soft); line-height: 1.5; }
+
+.ei-route-link {
+  align-self: flex-start;
+  margin-top: 0.45rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: var(--ei-radius-pill);
+  border: 1px solid rgba(178, 139, 255, 0.68);
+  background:
+    linear-gradient(135deg, rgba(63,130,255,0.14), rgba(255,110,207,0.08)),
+    rgba(14, 20, 32, 0.98);
+  color: var(--ei-text-strong);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  text-decoration: none;
+  box-shadow: 0 0 14px rgba(178, 139, 255, 0.18);
+  transition:
+    transform 0.14s ease-out,
+    box-shadow 0.16s ease-out,
+    border-color 0.16s ease-out,
+    filter 0.16s ease-out,
+    background 0.20s ease-out;
+  position: relative;
+  overflow: hidden;
+  transform: translateZ(0);
+  isolation: isolate;
+}
+
+.ei-route-link::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    radial-gradient(circle at 18% 30%, rgba(255,255,255,0.10), transparent 48%),
+    radial-gradient(circle at 62% 18%, rgba(255,255,255,0.07), transparent 52%),
+    radial-gradient(circle at 78% 74%, rgba(255,255,255,0.08), transparent 54%),
+    radial-gradient(circle at 30% 60%, rgba(63,130,255,0.10), transparent 58%),
+    radial-gradient(circle at 76% 36%, rgba(255,110,207,0.08), transparent 58%);
+  filter: blur(10px) saturate(1.35) contrast(1.10);
+  mix-blend-mode: screen;
+  background-size: 160% 160%;
+  background-position: 70% 50%;
+  transform: translate3d(0,0,0);
+  transition: opacity 0.16s ease-out;
+  z-index: 0;
+}
+
+.ei-route-link::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    radial-gradient(120px 40px at 22% 18%,
+      rgba(255,255,255,0.22),
+      rgba(255,255,255,0.08) 38%,
+      rgba(255,255,255,0.00) 68%),
+    repeating-linear-gradient(115deg,
+      rgba(255,255,255,0.00) 0px,
+      rgba(255,255,255,0.00) 10px,
+      rgba(255,255,255,0.03) 12px,
+      rgba(255,255,255,0.00) 18px);
+  filter: blur(7px) saturate(1.2);
+  mix-blend-mode: color-dodge;
+  transform: translate3d(0,0,0);
+  transition: opacity 0.16s ease-out;
+  z-index: 0;
+}
+
+.ei-route-link > * { position: relative; z-index: 1; }
+
+.ei-route-link:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255,255,255,0.22);
+  box-shadow:
+    0 0 18px rgba(63,130,255,0.14),
+    0 0 28px rgba(255,110,207,0.10);
+  filter: saturate(1.08);
+}
+
+.ei-route-link:hover::before {
+  opacity: 0.55;
+  animation: eiCausticDrift 2.9s cubic-bezier(0.18, 0.85, 0.22, 1.0) forwards;
+}
+
+.ei-route-link:hover::after {
+  opacity: 0.55;
+  animation: eiGlintWobble 2.2s cubic-bezier(0.20, 0.85, 0.20, 1.0) forwards;
+}
+
+@keyframes eiCausticDrift {
+  0%   { background-position: 72% 50%; transform: translate3d(0,0,0) scale(1.00); }
+  55%  { background-position: 54% 44%; transform: translate3d(0,0,0) scale(1.02); }
+  100% { background-position: 42% 56%; transform: translate3d(0,0,0) scale(1.01); }
+}
+
+@keyframes eiGlintWobble {
+  0%   { filter: blur(7px) saturate(1.20); transform: translate3d(0,0,0); }
+  45%  { filter: blur(6px) saturate(1.28); transform: translate3d(3px, 1px, 0); }
+  100% { filter: blur(7px) saturate(1.20); transform: translate3d(1px, 2px, 0); }
+}
+
+.ei-route-link:active {
+  transform: translateY(0px) scale(0.99);
+  filter: saturate(1.12) contrast(1.02);
+  box-shadow: 0 0 16px rgba(178,139,255,0.16);
+}
+
+.ei-route-link:focus-visible { outline: 2px solid #ffffff; outline-offset: 3px; }
+
+.ei-socials-footer { margin-top: 2.4rem; text-align: center; }
+.ei-socials-footer-banner {
+  height: 80px;
+  border-radius: 22px;
+  background-image: url("https://github.com/esotericmartyristaken-bit/EsotericSiteLinking/blob/main/EsoBanner2.png?raw=true");
+  background-repeat: no-repeat;
+  background-position: center 55%;
+  background-size: 140% auto;
+  margin-bottom: 1rem;
+  opacity: 0.85;
+}
+.ei-socials-footer-text { margin: 0; font-size: 0.88rem; color: var(--ei-text-soft); line-height: 1.5; }
+
+/* =============================================================
+  RESPONSIVE
+============================================================= */
+@media (max-width: 900px) {
+  .ei-shell { padding: 1.8rem 1rem 2rem; }
+  .ei-topnav { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+
+  .ei-hero-text { padding: 1.4rem 1.4rem 1.6rem; padding-right: 1.4rem; }
+  .ei-hero-text::after {
+    position: static;
+    display: block;
+    margin: 1.2rem 0 0;
+    transform: none;
+    width: 100%;
+    max-width: 420px;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .ei-stream-row--double { grid-template-columns: minmax(0, 1fr); row-gap: 1.4rem; column-gap: 0; }
+  .ei-stream-item, .ei-stream-item--big { width: 100%; }
+
+  .ei-stream-item--discord,
+  .ei-stream-item--twitter { padding-right: 7.5rem; }
+
+  .ei-stream-item--twitter::before,
+  .ei-stream-item--discord::before { width: 46%; }
+
+  .ei-socials-hero-content { margin-top: -74px; padding: 1.15rem 1.3rem 1.6rem; }
+  .ei-contact-list { max-width: 280px; }
+}
+
+@media (max-width: 520px) {
+  .ei-topnav {
+    width: 100%;
+    max-width: 100%;
+    padding: 0.6rem 0.75rem;
+    border-radius: 22px;
+    overflow: hidden;
+    gap: 0.55rem;
+  }
+
+  .ei-topnav-brand { width: 100%; }
+  .ei-topnav-title {
+    width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    line-height: 1.15;
+    font-size: 0.82rem;
+    letter-spacing: 0.07em;
+  }
+
+  .ei-topnav-links {
+    width: 100%;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+  }
+
+  .ei-topnav-button {
+    padding: 0.40rem 0.72rem;
+    font-size: 0.74rem;
+    letter-spacing: 0.12em;
+    max-width: 100%;
+    white-space: nowrap;
+  }
+
+  .ei-stream-row--single,
+  .ei-stream-row--double { justify-items: stretch; }
+
+  .ei-stream-item {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .ei-stream-item--discord,
+  .ei-stream-item--twitter {
+    padding-right: 1.3rem !important;
+    min-height: 0;
+    writing-mode: horizontal-tb !important;
+    text-orientation: mixed !important;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .ei-stream-item--twitter::before,
+  .ei-stream-item--discord::before { display: none !important; }
+
+  .ei-stream-item--twitter .ei-stream-tag,
+  .ei-stream-item--discord .ei-stream-tag,
+  .ei-stream-item--twitter .ei-stream-title,
+  .ei-stream-item--discord .ei-stream-title,
+  .ei-stream-item--twitter .ei-stream-text,
+  .ei-stream-item--discord .ei-stream-text {
+    writing-mode: horizontal-tb !important;
+    text-orientation: mixed !important;
+    transform: none !important;
+    letter-spacing: normal !important;
+    word-spacing: normal !important;
+  }
+
+  .ei-stream-item--twitter .ei-stream-title,
+  .ei-stream-item--discord .ei-stream-title {
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+    overflow-wrap: normal !important;
+  }
+
+  .ei-stream-item--twitter .ei-stream-text,
+  .ei-stream-item--discord .ei-stream-text {
+    white-space: normal !important;
+    word-break: normal !important;
+    overflow-wrap: break-word !important;
+    hyphens: auto;
+    font-size: 0.98rem;
+    line-height: 1.42;
+    max-width: 60ch;
+  }
+
+  .ei-panel, .ei-contact-inner { padding: 1.4rem 1.3rem 1.8rem; }
+  .ei-socials-hero-content { margin-top: -64px; }
+
+  .ei-stream-item--discord,
+  .ei-stream-item--twitter { -webkit-touch-callout: none; }
+
+  /* ===========================================================
+     MOBILE: KILL TWITTER "STUCK GLOW" ARTIFACT (HARD STOP)
+     -----------------------------------------------------------
+     The Twitter card's ::after uses mix-blend-mode + filter and
+     can leave a stale composited band after tap + scroll on iOS.
+     On mobile widths we remove the pseudo layer entirely.
+  ============================================================ */
+  .ei-stream-item--twitter::after {
+    display: none !important;
+    opacity: 0 !important;
+    background: none !important;
+    filter: none !important;
+    mix-blend-mode: normal !important;
+  }
+
+  .ei-stream-item--twitter:hover,
+  .ei-stream-item--twitter:active,
+  .ei-stream-item--twitter:focus,
+  .ei-stream-item--twitter:focus-visible {
+    box-shadow: var(--ei-shadow-card) !important;
+    filter: none !important;
+  }
+}
+
+/* =============================================================
+  WORDPRESS THEME CLEAN-UP
+============================================================= */
+.page .entry-header { display: none; }
+.page .ct-container, .page .site-main { padding-top: 0; margin-top: 0; }
+
+
+/* =============================================================
+  MOBILE FIX: REMOVE COMPOSITOR-HEAVY GLOWS THAT CAUSE "STUCK BAND"
+  -------------------------------------------------------------
+  Root cause on mobile is usually a fixed element with huge shadow
+  (.ei-neon-frame) and/or mix-blend-mode + blur + animation layers
+  (.ei-bg-overlay::before/::after) getting cached after tap+scroll.
+  We keep the look but make it stable on mobile.
+============================================================= */
+@media (max-width: 520px) {
+  /* Fixed neon frame: keep a subtle border, drop the giant glow */
+  .ei-neon-frame {
+    box-shadow: none !important;
+    border: 2px solid rgba(255, 110, 207, 0.18) !important;
+  }
+
+  /* Background overlay layers: remove blend-mode + animation on mobile */
+  .ei-bg-overlay::before,
+  .ei-bg-overlay::after {
+    mix-blend-mode: normal !important;
+    animation: none !important;
+    transform: none !important;
+  }
+
+  /* Keep the gradients but reduce "GPU smear" risk from heavy filters */
+  .ei-bg-overlay::before {
+    filter: blur(34px) saturate(1.15) contrast(1.08) !important;
+  }
+
+  .ei-bg-overlay::after {
+    filter: blur(28px) saturate(1.10) contrast(1.06) !important;
+  }
+}
