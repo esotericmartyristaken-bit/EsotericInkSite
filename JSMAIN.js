@@ -13,7 +13,8 @@
   - Any element with data-ei-cascade-first (or inside one) will
     animate first in the cascade.
 ============================================================= */
-	document.addEventListener("DOMContentLoaded", function () {
+	(function () {
+	function initEsotericInk() {
 		startVersionLabelEnforcer("3.14");
 		applyTemporaryServiceStatus();
 		//const root = document.getElementById("ei-spa-root");
@@ -186,4 +187,10 @@
 		homeSubtitle.textContent = "Homepage is temporarily down for maintenance. Socials and About remain available.";
 	  }
 	}
-});
+
+	if (document.readyState === "loading") {
+	  document.addEventListener("DOMContentLoaded", initEsotericInk);
+	} else {
+	  initEsotericInk();
+	}
+	})();
