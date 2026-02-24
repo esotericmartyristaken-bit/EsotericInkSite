@@ -102,7 +102,7 @@
 	}
 
 	function forceSubsystemVersion(version) {
-	  const versionLabelPattern = /(Esoteric\s+Ink\s+Subsystems\s+Version\s*)(\d+(?:\.\d+)?)/i;
+	  const versionLabelPattern = /(Esoteric\s+In(?:k|c)\s+Subsystems\s+Version\s*)(\d+(?:\.\d+)?)/i;
 	  const leafNodes = document.querySelectorAll("body *");
 
 	  leafNodes.forEach(function (el) {
