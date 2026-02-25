@@ -1,34 +1,32 @@
 # EsotericInkSite
 
-Standalone Esoteric Ink front-end (no WordPress dependency required for local development).
+## Scope
 
-## Local Preview (Recommended)
+Static front-end for Esoteric Ink.
 
-1. Run `launch-preview.bat`.
-2. Browser opens to `http://localhost:4173/index.html`.
-3. Edit files in this repo and refresh the same browser tab.
-4. Run `stop-preview.bat` when done.
+## Runtime
 
-## Pages
+- Local preview port: `4173`
+- Local preview URL: `http://localhost:4173/index.html`
+- WordPress runtime: loader-based embed supported
 
-- `index.html` - Home
-- `socials.html` - Socials
-- `about.html` - About
+## Document Set
 
-## Core Assets
+- `index.html`: home surface
+- `socials.html`: channel and storefront routing surface
+- `about.html`: factual project/profile surface
 
-- `CSSMAIN.css` - Visual style and animation rules
-- `JSMAIN.js` - Boot logic, version label enforcement, and page behavior
+## Asset Set
 
-## Behavior Notes
+- `CSSMAIN.css`: layout, typography, effects, motion
+- `JSMAIN.js`: boot/flicker orchestration, SPA-style nav swap, title/version enforcement
+- `dev_server.py`: local HTTP preview server
+- `launch-preview.bat`: local server entrypoint
+- `stop-preview.bat`: local server shutdown
 
-- Top nav is intentionally kept stable during boot (no boot flicker).
-- Background boot flicker is disabled; content chunks carry the intro effect.
-- Post-boot cascade is opt-in. To enable it for a root container, add:
-  - `data-ei-cascade-after-boot="true"` on `#ei-spa-root`
+## Behavior
 
-## Troubleshooting
-
-- If preview does not open, run `launch-preview.bat` from Command Prompt to see errors.
-- If Python is missing, install Python and ensure `py` or `python` is on PATH.
-- If server is stuck, run `stop-preview.bat` then `launch-preview.bat` again.
+- Navigation model: in-page shell swap via `JSMAIN.js`
+- Intro model: element-level flicker sequence with top-to-bottom bias
+- Top bar model: stable during flicker pass
+- Version label target: `ESOTERIC INK SUBSYSTEMS™ v3.86`
